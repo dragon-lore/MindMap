@@ -1,0 +1,190 @@
+'''
+Nom ......... : projet_py.py
+Role ........ : un programme qui crée un MapMinder sous forme de commande CLI
+Auteur ...... : De Carvalho André
+Version ..... : V1.0 du 09/05/2025
+
+Compilation dans le cmd (Anaconda Prompt) :
+
+Pour exécuter, tapez : python nom_fichier.py
+
+'''
+
+import json  # Pour enregistrer ou relire une carte mentale depuis un fichier
+
+# Une idée, c'est un titre et jusqu'à 3 sous-idées
+class Idee:
+    def __init__(self, titre):
+        self.titre = titre
+        self.sous_idees = []
+
+# Permet d'ajouter une sous-idée, mais limite à 3 maximum
+    def ajouter(self, nouvelle_idee):
+        if len(self.sous_idees) >= 3:
+            print("Cette idée a déjà 3 sous-idées. Impossible d'en ajouter plus.")
+        else:
+            self.sous_idees.append(nouvelle_idee)
+
+# Affiche l'idée avec indentation selon le niveau dans la hiérarchie
+    def afficher(self, niveau=0):
+        print("  " * niveau + "- " + self.titre)
+        for sous_idee in self.sous_idees:
+            sous_idee.afficher(niveau + 1)
+
+# Recherche une idée par son nom et retourne le chemin pour y accéder
+    def chercher(self, mot, chemin=None):
+        if chemin is None:
+            chemin = []
+        chemin_actuel = chemin + [self.titre]
+        if self.titre.lower() == mot.lower():
+            return chemin_actuel
+        for sous in self.sous_idees:
+            resultat = sous.chercher(mot, chemin_actuel)
+            if resultat:
+                return resultat
+        return None
+
+# Transforme l'idée en dictionnaire (utile pour sauvegarder dans un fichier)
+    def en_dict(self):
+        return {
+            "titre": self.titre,
+            "sous_idees": [idee.en_dict() for idee in self.sous_idees]
+        }
+# Recrée une idée à partir d’un dictionnaire
+    @staticmethod
+    def depuis_dict(donnees):
+        idee = Idee(donnees["titre"])
+        for sous_donnee in donnees["sous_idees"]:
+            idee.ajouter(Idee.depuis_dict(sous_donnee))
+        return idee
+
+# Application de carte mentale simple
+class CarteMentale:
+    def __init__(self):
+        self.liste_idees = []
+
+# Lance l'application en boucle jusqu'à ce que l'utilisateur quitte
+    def lancer(self):
+        print("MindMap CLI")
+        print("Tu peux créer, afficher, enregistrer et rechercher des idées.")
+        print("Tape 'aide' à tout moment pour revoir les commandes.")
+
+        while True:
+            action = input("\nQue veux-tu faire ? ").strip().lower()
+
+            if action == "aide":
+                self.afficher_commandes()
+
+            elif action == "nouvelle":
+                titre = input("Quel est le titre de ta nouvelle idée principale ? ")
+                self.liste_idees.append(Idee(titre))
+                print("Idée principale ajoutée.")
+
+            elif action == "ajouter":
+                self.montrer_idees()
+                choix = input("Numéro de l'idée à laquelle ajouter une sous-idée : ")
+                if choix.isdigit():
+                    index = int(choix) - 1
+                    if 0 <= index < len(self.liste_idees):
+                        self.ajouter_sous_idee(self.liste_idees[index])
+                    else:
+                        print("Ce numéro ne correspond à aucune idée.")
+                else:
+                    print("Merci d'entrer un numéro.")
+
+            elif action == "afficher":
+                self.montrer_idees()
+
+            elif action == "rechercher":
+                mot = input("Nom de l'idée à chercher : ")
+                trouve = False
+                for idee in self.liste_idees:
+                    chemin = idee.chercher(mot)
+                    if chemin:
+                        print("Idée trouvée : " + " > ".join(chemin))
+                        trouve = True
+                        break
+                if not trouve:
+                    print("Désolé, cette idée n'existe pas.")
+
+            elif action == "supprimer":
+                mot = input("Quel est le nom de l'idée à supprimer ? ")
+                if self.supprimer(mot):
+                    print("Idée supprimée avec succès.")
+                else:
+                    print("Cette idée n'a pas été trouvée.")
+
+            elif action == "sauvegarder":
+                nom = input("Nom du fichier (ex : mes_idees.json) : ")
+                with open(nom, "w") as fichier:
+                    json.dump([i.en_dict() for i in self.liste_idees], fichier, indent=2)
+                print("Carte mentale sauvegardée dans", nom)
+
+            elif action == "charger":
+                nom = input("Nom du fichier à ouvrir : ")
+                try:
+                    with open(nom, "r") as fichier:
+                        donnees = json.load(fichier)
+                        self.liste_idees = [Idee.depuis_dict(d) for d in donnees]
+                    print("Carte mentale chargée avec succès.")
+                except FileNotFoundError:
+                    print("Fichier introuvable.")
+
+            elif action == "quitter":
+                print("Fermeture du programme MindMap CLI.")
+                break
+
+            else:
+                print("Commande inconnue. Tape 'aide' pour voir les options.")
+
+    # Affiche les commandes possibles à l'utilisateur
+    def afficher_commandes(self):
+        print("\nCommandes disponibles :")
+        print("  nouvelle     → créer une nouvelle idée principale")
+        print("  ajouter      → ajouter une sous-idée à une idée principale")
+        print("  afficher     → afficher toute la carte mentale")
+        print("  rechercher   → retrouver une idée par son nom")
+        print("  supprimer    → supprimer une idée et ses sous-idées")
+        print("  sauvegarder  → enregistrer dans un fichier JSON")
+        print("  charger      → charger une carte mentale depuis un fichier")
+        print("  quitter      → sortir du programme")
+
+    # Affiche toutes les idées principales avec leurs sous-idées
+    def montrer_idees(self):
+        if not self.liste_idees:
+            print("Aucune idée pour le moment.")
+        else:
+            for i, idee in enumerate(self.liste_idees, 1):
+                print(f"{i}. {idee.titre}")
+                idee.afficher(1)
+
+    # Permet à l'utilisateur d'ajouter une sous-idée à une idée existante
+    def ajouter_sous_idee(self, idee):
+        titre = input("Quel est le titre de la sous-idée ? ")
+        nouvelle = Idee(titre)
+        idee.ajouter(nouvelle)
+
+    # Supprime une idée (ou sous-idée) par son nom
+    def supprimer(self, nom):
+        for i in range(len(self.liste_idees)):
+            if self.liste_idees[i].titre.lower() == nom.lower():
+                del self.liste_idees[i]
+                return True
+            elif self.supprimer_recursif(self.liste_idees[i], nom):
+                return True
+        return False
+
+    # Fonction interne pour chercher et supprimer récursivement dans les sous-idées
+    def supprimer_recursif(self, idee, nom):
+        for i in range(len(idee.sous_idees)):
+            if idee.sous_idees[i].titre.lower() == nom.lower():
+                del idee.sous_idees[i]
+                return True
+            elif self.supprimer_recursif(idee.sous_idees[i], nom):
+                return True
+        return False
+
+# Démarrage du programme
+if __name__ == "__main__":
+    app = CarteMentale()
+    app.lancer()
