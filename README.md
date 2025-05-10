@@ -25,3 +25,5 @@ Comment utiliser le programme ?
 
 2. Lancer le programme
 Dans le terminal ou Anaconda Prompt :
+
+python nom_fichier.py
